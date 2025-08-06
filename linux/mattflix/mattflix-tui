@@ -175,7 +175,7 @@ play_media() {
                 TMP_PATH="$GAMEDIR/${SAFE_NAME}.${EXT}"
                 mkdir -p "$(dirname "$TMP_PATH")"
                 curl -L "$DOWNLOAD_URL" -o "$TMP_PATH"
-/home/matt/.local/bin/retroarch-rom-launcher "${SAFE_NAME}.${EXT}"
+/$HOME/.local/bin/retroarch-rom-launcher "${SAFE_NAME}.${EXT}"
             fi
             ;;
         "Audio")
