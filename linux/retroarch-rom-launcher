@@ -2,7 +2,7 @@
 
 ROM="$1"
 EXT="${ROM##*.}"
-RETROARCH="/home/matt/AppImages/RetroArch-Linux-x86_64.AppImage"
+RETROARCH="$HOME/AppImages/RetroArch-Linux-x86_64.AppImage"
 CORE_DIR="$RETROARCH.home/.config/retroarch/cores"
 
 # Lowercase extension
