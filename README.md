@@ -1,5 +1,5 @@
 # mattflix-tui
-![Alt text](https://raw.githubusercontent.com/booYah187/mattflix-master/refs/heads/main/mattflixes/mattflixtui.png?token=GHSAT0AAAAAADHJVOHXSDWV5G6OUGXDQWHE2ET25CA)
+![Alt text](https://github.com/booYah187/mattflix-tui/blob/emby-tui/embytui.png)
 
 tui interface for personal emby server. stream/download on linux, android, muos, jelos.
 
