@@ -1,0 +1,51 @@
+#!/bin/bash
+
+ROM="$1"
+EXT="${ROM##*.}"
+RETROARCH="/$HOME/AppImages/RetroArch-Linux-x86_64.AppImage"
+CORE_DIR="$RETROARCH.home/.config/retroarch/cores"
+
+# Lowercase extension
+EXT="${EXT,,}"
+
+case "$EXT" in
+  n64|z64|v64)
+    CORE="mupen64plus_next_libretro.so"
+    ;;
+  smc|sfc)
+    CORE="snes9x_libretro.so"
+    ;;
+  nes)
+    CORE="fceumm_libretro.so"
+    ;;
+  gen|md)
+    CORE="genesis_plus_gx_libretro.so"
+    ;;
+  gg)
+    CORE="smsplus_libretro.so"
+    ;;
+  cue|bin|chd|img|pbp|m3u)
+    CORE="pcsx_rearmed_libretro.so"
+    ;;
+  cso|iso)
+    CORE="ppsspp_libretro.so"
+    ;;
+  gbc)
+    CORE="gambatte_libretro.so"
+    ;;
+  gb)
+    CORE="gambatte_libretro.so"
+    ;;
+  gba)
+    CORE="mgba_libretro.so"
+    ;;
+  vb)
+    CORE="mednafen_vb_libretro.so"
+    ;;
+  *)
+    echo "Unknown or unsupported ROM extension: $EXT"
+    exit 1
+    ;;
+esac
+
+exec "$RETROARCH" -L "$CORE_DIR/$CORE" "$ROM"
