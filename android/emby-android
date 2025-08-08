@@ -1,0 +1,203 @@
+#!/bin/bash
+GAMEDIR=/$HOME/emby
+CONFIG_FILE="$GAMEDIR/emby.conf"
+cd $GAMEDIR
+export DIALOGRC=./.dialogrc
+export TERM=linux
+USE_TERMUX_OPEN=0
+
+while getopts "d" opt; do
+  case $opt in
+    d) USE_TERMUX_OPEN=1 ;;
+  esac
+done
+shift $((OPTIND -1))
+
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    else
+        EMBY_URL=$(dialog --stdout --inputbox "Enter Emby Server URL (e.g., http://192.168.1.10:8096)" 8 60)
+
+        [ -z "$EMBY_URL" ] && echo "No URL entered. Exiting." && exit 1
+
+        EMBY_API_KEY=$(dialog --stdout --inputbox "Enter Emby API Key" 8 60)
+        [ -z "$EMBY_API_KEY" ] && echo "No API key entered. Exiting." && exit 1
+        echo "EMBY_URL=\"$EMBY_URL\"" > "$CONFIG_FILE"
+        echo "EMBY_API_KEY=\"$EMBY_API_KEY\"" >> "$CONFIG_FILE"
+        source "$CONFIG_FILE"
+    fi
+}
+
+# Fetch item details
+ITEM_JSON=$(curl -s "$EMBY_URL/emby/Items/$CHOICE?api_key=$EMBY_API_KEY")
+ITEM_TYPE=$(echo "$ITEM_JSON" | jq -r '.Item.Type // .Type')
+
+# Get Emby libraries
+get_libraries() {
+    LIBRARIES_JSON=$(curl -s "$EMBY_URL/emby/Library/SelectableMediaFolders?api_key=$EMBY_API_KEY")
+
+    LIBRARY_LIST=$(echo "$LIBRARIES_JSON" | jq -r '.[] | .SubFolders[] | "\(.Id)|\(.Name)"')
+    [ -z "$LIBRARY_LIST" ] && dialog --msgbox "No libraries found or API error." 10 40 && exit 1
+
+    MENU_ENTRIES=()
+    while IFS="|" read -r id name; do
+        SAFE_NAME=$(echo "$name" | sed 's/[^[:print:]]//g')
+MENU_ENTRIES+=("$id" "$SAFE_NAME")
+
+    done <<< "$LIBRARY_LIST"
+
+    MENU_ENTRIES+=("search_all" "Search All Libraries")
+
+    CHOICE=$(dialog --stdout --title "emby" \
+                    --no-tags --menu "Choose a library:" 20 60 12 \
+                    "${MENU_ENTRIES[@]}")
+
+    [ -z "$CHOICE" ] && exit
+
+    if [ "$CHOICE" == "search_all" ]; then
+        search_all_libraries
+    else
+        get_library_items "$CHOICE"
+    fi
+}
+
+get_library_items() {
+    LIB_ID="$1"
+    ITEMS_JSON=$(curl -s "$EMBY_URL/emby/Items?api_key=$EMBY_API_KEY&ParentId=$LIB_ID&SortBy=Name&Recursive=false")
+    FOLDER_NAME=$(echo "$ITEMS_JSON" | jq -r --arg ID "$SELECTED_ID" '.Items[] | select(.Id == $ID) | .Name')
+  
+
+    if [[ "$FOLDER_NAME" =~ ^Season ]]; then
+        ITEM_LIST=$(echo "$ITEMS_JSON" | jq -r '
+            .Items? // []
+            | sort_by(.IndexNumber // 0)
+            | .[]
+            | "\(.Id)|\(.Name)|\(.Type)"'
+        )
+    else
+        ITEM_LIST=$(echo "$ITEMS_JSON" | jq -r '
+            .Items? // []
+            | sort_by(.IndexNumber)
+            | .[]
+            | "\(.Id)|\(.Name)|\(.Type)"'
+        )
+    fi
+    [ -z "$ITEM_LIST" ] && dialog --msgbox "No media found in this library." 10 40 && return
+
+    MENU_ITEMS=()
+    while IFS='|' read -r ID NAME TYPE; do
+        SAFE_NAME=$(echo "$NAME" | tr -d '"' | sed 's/[^[:print:]]//g')
+        MENU_ITEMS+=("$ID" "$SAFE_NAME ($TYPE)")
+    done <<< "$ITEM_LIST"
+
+    ITEM_CHOICE=$(dialog --stdout --title "emby" \
+                         --no-tags --menu "Choose media or folder:" 20 60 12 \
+                         "${MENU_ITEMS[@]}")
+
+    [ -z "$ITEM_CHOICE" ] && return
+
+    SELECTED_LINE=$(echo "$ITEM_LIST" | grep "^$ITEM_CHOICE|")
+    SELECTED_TYPE=$(echo "$SELECTED_LINE" | cut -d'|' -f3)
+
+    if [[ "$SELECTED_TYPE" =~ ^(Folder|Collection|BoxSet|Series|Season|GameSystem)$ ]]; then
+        get_library_items "$ITEM_CHOICE"
+    else
+        play_media "$SELECTED_LINE"
+    fi
+}
+
+# Search across all libraries
+search_all_libraries() {
+    QUERY=$(dialog --stdout --inputbox "Enter search term:" 8 50)
+    [ -z "$QUERY" ] && return
+
+    SEARCH_RESULTS=$(curl -s "$EMBY_URL/emby/Items?api_key=$EMBY_API_KEY&SearchTerm=$(echo "$QUERY" | jq -sRr @uri)&Recursive=true" \
+        | jq -r '.Items? // [] | .[] | "\(.Id)|\(.Name)|\(.Type)"')
+
+    [ -z "$SEARCH_RESULTS" ] && dialog --msgbox "No results found." 8 40 && return
+
+    MENU_ITEMS=()
+    while IFS='|' read -r ID NAME TYPE; do
+        SAFE_NAME=$(echo "$NAME" | tr -d '"' | sed 's/[^[:print:]]//g')
+        MENU_ITEMS+=("$ID" "$SAFE_NAME ($TYPE)")
+    done <<< "$SEARCH_RESULTS"
+
+    RESULT_ID=$(dialog --stdout --title "Search Results" \
+                       --no-tags --menu "Select item to play or browse:" 20 60 12 \
+                       "${MENU_ITEMS[@]}")
+
+    [ -z "$RESULT_ID" ] && return
+
+    RESULT_LINE=$(echo "$SEARCH_RESULTS" | grep "^$RESULT_ID|")
+    RESULT_TYPE=$(echo "$RESULT_LINE" | cut -d'|' -f3)
+
+    if [[ "$RESULT_TYPE" =~ ^(Folder|Collection|BoxSet|Series|Season|GameSystem)$ ]]; then
+        get_library_items "$RESULT_ID"
+    else
+        play_media "$RESULT_LINE"
+    fi
+}
+
+# Launch with mpv
+play_media() {
+    IFS="|" read -r ITEM_ID ITEM_NAME ITEM_TYPE <<< "$1"
+    SAFE_NAME=$(echo "$ITEM_NAME" | tr ' /:' '___')
+        ITEM_JSON=$(curl -s "$EMBY_URL/emby/Items/$ITEM_ID?api_key=$EMBY_API_KEY")
+    
+
+    case "$ITEM_TYPE" in
+        "Movie"|"Episode"|"Video")
+            STREAM_URL="$EMBY_URL/emby/Videos/$ITEM_ID/stream?Static=true&api_key=$EMBY_API_KEY"
+            if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
+                curl -L "$STREAM_URL" -o "${SAFE_NAME}.mp4"
+            else
+            mpv "$STREAM_URL" --quiet --no-terminal > /dev/null 2>&1
+            fi
+            ;;
+        "Book")
+            DOWNLOAD_URL="$EMBY_URL/emby/Items/$ITEM_ID/Download?api_key=$EMBY_API_KEY"
+            if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
+                curl -L "$DOWNLOAD_URL" -o "${SAFE_NAME}.epub"
+            else
+                FILE_PATH="$(pwd)/${SAFE_NAME}.epub"
+                curl -L "$DOWNLOAD_URL" -o "$FILE_PATH" && \
+                SHARED_PATH="/home/matt/emby/$SAFE_NAME.epub"
+cp "$TMP_PATH" "$SHARED_PATH"
+                am start -a android.intent.action.VIEW -d "file://$SHARED_PATH" -t "application/epub+zip"
+            fi
+            ;;
+                 "Game")
+            DOWNLOAD_URL="$EMBY_URL/emby/Items/$ITEM_ID/Download?api_key=$EMBY_API_KEY"
+            if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
+                read -p "Enter file extension for ${SAFE_NAME}: " EXT
+                curl -L "$DOWNLOAD_URL" -o "${SAFE_NAME}.${EXT}"
+            else
+                read -p "Enter file extension for ${SAFE_NAME}: " EXT
+                TMP_PATH="/data/data/com.termux/files/home/.cache/roms/${SAFE_NAME}.${EXT}"
+                mkdir -p "$(dirname "$TMP_PATH")"
+                curl -L "$DOWNLOAD_URL" -o "$TMP_PATH"
+                am start -a android.intent.action.VIEW -d "file://$TMP_PATH" \
+                -n com.retroarch/.browser.retroactivity.RetroActivityFuture
+            fi
+            ;;
+        "Audio")
+            STREAM_URL="$EMBY_URL/emby/Videos/$ITEM_ID/stream?Static=true&api_key=$EMBY_API_KEY"
+            if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
+                curl -L "$STREAM_URL" -o "${SAFE_NAME}.mp3"
+            else
+            mpv "$STREAM_URL" --quiet --no-terminal > /dev/null 2>&1
+            fi
+            ;;
+
+        *)
+            dialog --msgbox "Unsupported media type: $ITEM_TYPE" 10 40
+            ;;
+    esac
+}
+
+# Run the sequence
+load_config
+get_libraries
+#clear
+echo "Exited emby."
