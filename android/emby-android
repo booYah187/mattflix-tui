@@ -286,11 +286,8 @@ play_media() {
         "Movie"|"Episode"|"Video")
             STREAM_URL="$EMBY_URL/emby/Videos/$ITEM_ID/stream?Static=true&api_key=$EMBY_API_KEY"
             if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
-                # download .ts and open with termux or mpv
                 TMPFILE="$(pwd)/${SAFE_NAME}.ts"
                 curl -L "$STREAM_URL" -o "$TMPFILE"
-                mpv "$TMPFILE" --quiet --no-terminal
-                rm -f "$TMPFILE"
             else
                 # attempt to launch via Android intent if available, otherwise mpv
                 if command -v am >/dev/null 2>&1; then
@@ -303,8 +300,18 @@ play_media() {
             ;;
         "Audio")
             STREAM_URL="$EMBY_URL/emby/Videos/$ITEM_ID/stream?Static=true&api_key=$EMBY_API_KEY"
-            mpv "$STREAM_URL" --no-terminal --no-video --quiet
-            ;;
+            if [ "$USE_TERMUX_OPEN" -eq 1 ]; then
+        curl -L "$STREAM_URL" -o "./${SAFE_NAME}.mp3"
+                   else
+                # attempt to launch via Android intent if available, otherwise mpv
+                if command -v am >/dev/null 2>&1; then
+                    am start -n org.videolan.vlc/org.videolan.vlc.gui.video.VideoPlayerActivity -d "$STREAM_URL" || \
+                    mpv "$STREAM_URL" --quiet --no-terminal
+                else
+                    mpv "$STREAM_URL" --quiet --no-terminal
+                fi
+                fi
+    ;;
         "Book")
             DOWNLOAD_URL="$EMBY_URL/emby/Items/$ITEM_ID/Download?api_key=$EMBY_API_KEY"
             OUTPATH="$(pwd)/${SAFE_NAME}.epub"
