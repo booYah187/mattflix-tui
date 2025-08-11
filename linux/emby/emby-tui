@@ -55,7 +55,7 @@ get_libraries() {
     NEXT_MENU=""
     NEXT_ARG=""
 
-    HIDDEN_LIBRARIES=("Games" "DoggoVision" "playlists")
+    HIDDEN_LIBRARIES=("DoggoVision" "playlists")
     LIBRARIES_JSON=$(curl -s "$EMBY_URL/emby/Library/SelectableMediaFolders?api_key=$EMBY_API_KEY")
     if [ -z "$LIBRARIES_JSON" ]; then
         dialog --msgbox "Failed to fetch libraries from server." 10 50
@@ -87,8 +87,8 @@ get_libraries() {
         MENU_ENTRIES+=("$id" "$SAFE_NAME")
     done <<< "$LIBRARY_LIST"
 
-    MENU_ENTRIES+=("search_all" "Search All Libraries")
-    MENU_ENTRIES+=("exit" "Exit emby")
+    MENU_ENTRIES+=("search_all" "Search")
+    MENU_ENTRIES+=("exit" "Exit")
 
     CHOICE=$(dialog --stdout --title "emby" --no-tags --menu "Choose a library:" 20 60 14 "${MENU_ENTRIES[@]}")
     if [ -z "$CHOICE" ]; then
@@ -146,9 +146,9 @@ get_library_items() {
         MENU_ITEMS+=("$ID" "$SAFE_NAME ($TYPE)")
     done <<< "$ITEM_LIST"
 
-    MENU_ITEMS+=("search_all" "Search All Libraries")
+    MENU_ITEMS+=("search_all" "Search")
     MENU_ITEMS+=("back" "Back")
-    MENU_ITEMS+=("exit" "Exit emby")
+    MENU_ITEMS+=("exit" "Exit")
 
     ITEM_CHOICE=$(dialog --stdout --title "emby" --no-tags --menu "Choose media or folder:" 20 70 16 "${MENU_ITEMS[@]}")
     if [ -z "$ITEM_CHOICE" ]; then
@@ -173,7 +173,7 @@ get_library_items() {
         *)
             SELECTED_LINE=$(echo "$ITEM_LIST" | grep "^$ITEM_CHOICE|" || true)
             SELECTED_TYPE=$(echo "$SELECTED_LINE" | cut -d'|' -f3)
-            if [[ "$SELECTED_TYPE" =~ ^(Folder|Collection|BoxSet|Series|Season)$ ]]; then
+            if [[ "$SELECTED_TYPE" =~ ^(Folder|Collection|BoxSet|Series|Season|GameSystem)$ ]]; then
                 NEXT_MENU="get_library_items"
                 NEXT_ARG="$ITEM_CHOICE"
                 MENU_ACTION="push"
@@ -213,7 +213,7 @@ search_all_libraries() {
     done <<< "$SEARCH_RESULTS"
 
     MENU_ITEMS+=("back" "Back")
-    MENU_ITEMS+=("exit" "Exit emby")
+    MENU_ITEMS+=("exit" "Exit")
 
     RESULT_ID=$(dialog --stdout --title "emby" --no-tags --menu "Search Results for: $QUERY" 20 70 16 "${MENU_ITEMS[@]}")
     if [ -z "$RESULT_ID" ]; then
