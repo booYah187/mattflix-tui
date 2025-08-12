@@ -1,4 +1,4 @@
-# mattflix-tui
+# emby-tui
 ![Alt text](https://github.com/booYah187/mattflix-tui/blob/emby-tui/embytui.png)
 
 tui interface for personal emby server. stream/download on linux, android, muos, jelos.
