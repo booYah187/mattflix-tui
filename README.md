@@ -8,3 +8,5 @@ requires dialog, jq, mpv.
 android also requires termux, retroarch
 
 linux also requires koreader.AppImage (or other epub reader), retroarch.AppImage. place included retroarch-rom-launcher in $HOME/.local/bin 
+
+for jellyfin branch, see https://github.com/booYah187/emby-tui/tree/jellyfin-tui
