@@ -1,5 +1,5 @@
 # jellyfin-tui
-![Alt text](https://github.com/booYah187/emby-tui/blob/jellyfin-tui/jellyfin.png)
+![Alt text](http://192.168.1.205:8111/mattyj513/emby-tui/raw/branch/jellyfin-tui/jellyfin.png)
 
 tui interface for personal emby server. stream/download on linux, android, muos, jelos.
 
