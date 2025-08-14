@@ -1,5 +1,5 @@
 # emby-tui
-![Alt text](http://192.168.1.205:8111/mattyj513/emby-tui/src/branch/emby-tui/embytui.png)
+![Alt text](https://blacklungindustries.ddns.net/gitea/mattyj513/emby-tui/raw/branch/emby-tui/embytui.png)
 
 tui interface for personal emby server. stream/download on linux, android, muos, jelos.
 
